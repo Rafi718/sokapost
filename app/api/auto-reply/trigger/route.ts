@@ -219,18 +219,21 @@ export async function POST(req: NextRequest) {
           // Check exclude keywords
           if (shouldExcludeMessage(reply.text, settings.excludeKeywords)) {
             console.log(`🚫 Skipping - exclude keyword matched`)
-            await prisma.replyHistory.create({
-              data: {
-                userId: user.id,
-                postId,
-                replyId: reply.id,
-                conversationId: postId,
-                fromUsername: reply.username,
-                replyText: reply.text,
-                status: 'skipped',
-                replyMode: settings.mode
-              }
-            })
+            if (!existing) {
+              await prisma.replyHistory.create({
+                data: {
+                  userId: user.id,
+                  postId,
+                  replyId: reply.id,
+                  conversationId: postId,
+                  fromUsername: reply.username,
+                  replyText: reply.text,
+                  status: 'skipped',
+                  replyMode: settings.mode,
+                  platform: 'threads'
+                }
+              })
+            }
             skippedCount++
             continue
           }
@@ -247,18 +250,21 @@ export async function POST(req: NextRequest) {
               console.log(`🔑 Keyword matched: "${match.keyword}"`)
             } else {
               console.log(`ℹ️ No keyword match`)
-              await prisma.replyHistory.create({
-                data: {
-                  userId: user.id,
-                  postId,
-                  replyId: reply.id,
-                  conversationId: postId,
-                  fromUsername: reply.username,
-                  replyText: reply.text,
-                  status: 'skipped',
-                  replyMode: 'keyword'
-                }
-              })
+              if (!existing) {
+                await prisma.replyHistory.create({
+                  data: {
+                    userId: user.id,
+                    postId,
+                    replyId: reply.id,
+                    conversationId: postId,
+                    fromUsername: reply.username,
+                    replyText: reply.text,
+                    status: 'skipped',
+                    replyMode: 'keyword',
+                    platform: 'threads'
+                  }
+                })
+              }
               skippedCount++
               continue
             }
@@ -279,7 +285,7 @@ export async function POST(req: NextRequest) {
 
           // 🔒 CRITICAL: Save to history FIRST with "processing" status
           // This prevents race condition with cron scheduler
-          const historyRecord = await prisma.replyHistory.create({
+          const historyRecord = existing || await prisma.replyHistory.create({
             data: {
               userId: user.id,
               postId,
@@ -290,9 +296,18 @@ export async function POST(req: NextRequest) {
               ourReplyText: replyText,
               status: 'processing',
               replyMode: settings.mode,
-              matchedKeyword
+              matchedKeyword,
+              platform: 'threads'
             }
           })
+          
+          // Update status to processing if reusing existing
+          if (existing && existing.status !== 'processing') {
+            await prisma.replyHistory.update({
+              where: { id: historyRecord.id },
+              data: { status: 'processing', ourReplyText: replyText }
+            })
+          }
 
           console.log(`🔒 Locked reply ${reply.id} for processing`)
 
