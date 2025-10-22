@@ -47,6 +47,11 @@ export default function AutoContentPage() {
     maxLength: 500
   })
 
+  // Time picker state
+  const [scheduleTime, setScheduleTime] = useState('08:00')
+  const [scheduleFrequency, setScheduleFrequency] = useState<'daily' | 'weekly'>('daily')
+  const [scheduleDayOfWeek, setScheduleDayOfWeek] = useState('1') // Monday
+
   const [previewContent, setPreviewContent] = useState('')
   const [previewLoading, setPreviewLoading] = useState(false)
   const [triggering, setTriggering] = useState<string | null>(null)
@@ -72,7 +77,12 @@ export default function AutoContentPage() {
     e.preventDefault()
 
     try {
-      const payload = editingId ? { ...formData, id: editingId } : formData
+      // Convert time picker to cron format
+      const cronTime = timeToCron(scheduleTime, scheduleFrequency, scheduleDayOfWeek)
+      
+      const payload = editingId 
+        ? { ...formData, cronTime, id: editingId } 
+        : { ...formData, cronTime }
 
       await axios.post('/api/auto-content/settings', payload)
       
@@ -95,6 +105,9 @@ export default function AutoContentPage() {
         includeHashtags: true,
         maxLength: 500
       })
+      setScheduleTime('08:00')
+      setScheduleFrequency('daily')
+      setScheduleDayOfWeek('1')
       setPreviewContent('')
       
       // Refresh list
@@ -102,6 +115,45 @@ export default function AutoContentPage() {
     } catch (error: any) {
       console.error('Failed to save setting:', error)
       toast.error(error.response?.data?.error || 'Failed to save setting')
+    }
+  }
+
+  // Convert cron to time picker format
+  const cronToTime = (cronTime: string) => {
+    const parts = cronTime.split(' ')
+    if (parts.length >= 2) {
+      const minute = parts[0].padStart(2, '0')
+      const hour = parts[1].padStart(2, '0')
+      return `${hour}:${minute}`
+    }
+    return '08:00'
+  }
+
+  // Convert cron to frequency
+  const cronToFrequency = (cronTime: string): 'daily' | 'weekly' => {
+    const parts = cronTime.split(' ')
+    if (parts.length >= 5 && parts[4] !== '*') {
+      return 'weekly'
+    }
+    return 'daily'
+  }
+
+  // Convert cron to day of week
+  const cronToDayOfWeek = (cronTime: string) => {
+    const parts = cronTime.split(' ')
+    if (parts.length >= 5 && parts[4] !== '*') {
+      return parts[4]
+    }
+    return '1'
+  }
+
+  // Convert time picker to cron format
+  const timeToCron = (time: string, frequency: 'daily' | 'weekly', dayOfWeek: string) => {
+    const [hour, minute] = time.split(':')
+    if (frequency === 'daily') {
+      return `${minute} ${hour} * * *`
+    } else {
+      return `${minute} ${hour} * * ${dayOfWeek}`
     }
   }
 
@@ -121,6 +173,12 @@ export default function AutoContentPage() {
       includeHashtags: setting.includeHashtags,
       maxLength: setting.maxLength
     })
+    
+    // Parse cron to time picker values
+    setScheduleTime(cronToTime(setting.cronTime))
+    setScheduleFrequency(cronToFrequency(setting.cronTime))
+    setScheduleDayOfWeek(cronToDayOfWeek(setting.cronTime))
+    
     setShowForm(true)
   }
 
@@ -226,6 +284,9 @@ export default function AutoContentPage() {
                 includeHashtags: true,
                 maxLength: 500
               })
+              setScheduleTime('08:00')
+              setScheduleFrequency('daily')
+              setScheduleDayOfWeek('1')
               setPreviewContent('')
             }}
             className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
@@ -308,23 +369,52 @@ export default function AutoContentPage() {
                   </select>
                 </div>
 
-                {/* Schedule (Cron Time) */}
+                {/* Schedule Time */}
                 <div>
                   <label className="block text-sm font-medium mb-2 text-gray-700">
-                    Schedule (Cron) <span className="text-red-500">*</span>
+                    Schedule Time <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="text"
-                    value={formData.cronTime}
-                    onChange={(e) => setFormData({ ...formData, cronTime: e.target.value })}
-                    placeholder="0 8 * * *"
+                    type="time"
+                    value={scheduleTime}
+                    onChange={(e) => setScheduleTime(e.target.value)}
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
                     required
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Format: minute hour day month dayOfWeek (e.g., "0 8 * * *" = daily at 08:00)
-                  </p>
                 </div>
+
+                {/* Frequency */}
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-700">Frequency</label>
+                  <select
+                    value={scheduleFrequency}
+                    onChange={(e) => setScheduleFrequency(e.target.value as 'daily' | 'weekly')}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  >
+                    <option value="daily">Every Day</option>
+                    <option value="weekly">Every Week</option>
+                  </select>
+                </div>
+
+                {/* Day of Week (only show if weekly) */}
+                {scheduleFrequency === 'weekly' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-gray-700">Day of Week</label>
+                    <select
+                      value={scheduleDayOfWeek}
+                      onChange={(e) => setScheduleDayOfWeek(e.target.value)}
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    >
+                      <option value="0">Sunday</option>
+                      <option value="1">Monday</option>
+                      <option value="2">Tuesday</option>
+                      <option value="3">Wednesday</option>
+                      <option value="4">Thursday</option>
+                      <option value="5">Friday</option>
+                      <option value="6">Saturday</option>
+                    </select>
+                  </div>
+                )}
 
                 {/* Max Length */}
                 <div>
@@ -416,6 +506,9 @@ export default function AutoContentPage() {
                   onClick={() => {
                     setShowForm(false)
                     setEditingId(null)
+                    setScheduleTime('08:00')
+                    setScheduleFrequency('daily')
+                    setScheduleDayOfWeek('1')
                     setPreviewContent('')
                   }}
                   className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"

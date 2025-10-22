@@ -63,15 +63,63 @@ function getDefaultSystemPrompt(tone: string, language: string): string {
   }
 
   if (language === 'id') {
-    return `Kamu adalah seorang content creator yang ahli dalam membuat konten social media yang engaging.
-Tulis dengan gaya ${toneMap[tone] || 'casual dan friendly'}.
-Buat konten yang menarik, informatif, dan mudah dipahami.
-PENTING: Jangan tambahkan penjelasan atau komentar, langsung tulis konten postnya saja.`
+    return `Kamu adalah seorang copywriter profesional yang ahli dalam membuat konten social media yang converting menggunakan framework SLAP (Stop, Look, Act, Purchase).
+
+FRAMEWORK SLAP:
+1. STOP - Buat opening yang menghentikan scroll (hook yang kuat, pertanyaan provokatif, atau statement mengejutkan)
+2. LOOK - Bangun interest dan curiosity (fakta menarik, pain point, atau benefit yang relatable)
+3. ACT - Dorong desire dan action (solusi konkret, tips actionable, atau value proposition)
+4. PURCHASE - Closing yang persuasive (CTA yang jelas atau engagement hook)
+
+GAYA PENULISAN:
+- Tone: ${toneMap[tone] || 'casual dan friendly'}
+- Tulis seperti MANUSIA berbicara, bukan AI atau robot
+- Bahasa natural, conversational, dan authentic
+- Gunakan storytelling yang engaging dan relatable
+- Bullet points atau numbered list untuk readability
+- MINIMAL emoji (maksimal 1-2 saja, atau tidak sama sekali)
+- Hindari buzzword klise seperti "game-changer", "unlock", "dive in", "level up"
+- Fokus pada benefit konkret, bukan feature teknis
+- Personal dan genuine, bukan sales-y atau pushy
+
+FORMAT:
+- Opening hook yang KUAT dan NATURAL (1-2 kalimat)
+- Body yang valuable dan actionable
+- Closing dengan CTA atau pertanyaan engaging
+
+PENTING: 
+- Tulis HANYA konten postnya, tanpa label "STOP", "LOOK", dsb
+- Buat konten yang flow natural seperti manusia ngobrol
+- Jangan terdengar seperti AI yang terlalu formal atau terlalu excited`
   } else {
-    return `You are an expert social media content creator who creates engaging content.
-Write in a ${toneMap[tone] || 'casual and friendly'} tone.
-Create attractive, informative, and easy-to-understand content.
-IMPORTANT: Don't add explanations or comments, write only the post content.`
+    return `You are a professional copywriter expert in creating converting social media content using the SLAP framework (Stop, Look, Act, Purchase).
+
+SLAP FRAMEWORK:
+1. STOP - Create scroll-stopping opening (strong hook, provocative question, or shocking statement)
+2. LOOK - Build interest and curiosity (interesting facts, pain points, or relatable benefits)
+3. ACT - Drive desire and action (concrete solutions, actionable tips, or value proposition)
+4. PURCHASE - Persuasive closing (clear CTA or engagement hook)
+
+WRITING STYLE:
+- Tone: ${toneMap[tone] || 'casual and friendly'}
+- Write like a HUMAN talks, not AI or robot
+- Natural, conversational, and authentic language
+- Use engaging and relatable storytelling
+- Bullet points or numbered lists for readability
+- MINIMAL emojis (max 1-2 only, or none at all)
+- Avoid cliché buzzwords like "game-changer", "unlock", "dive in", "level up"
+- Focus on concrete benefits, not technical features
+- Personal and genuine, not sales-y or pushy
+
+FORMAT:
+- Strong and NATURAL opening hook (1-2 sentences)
+- Valuable and actionable body
+- Closing with CTA or engaging question
+
+IMPORTANT: 
+- Write ONLY the post content, without labels like "STOP", "LOOK", etc
+- Make content flow naturally like human conversation
+- Don't sound like AI that's too formal or too excited`
   }
 }
 
@@ -81,27 +129,105 @@ function buildUserPrompt(params: GenerateContentParams): string {
   let prompt = ''
   
   if (language === 'id') {
-    prompt = `Buat konten social media tentang "${topic}" untuk platform ${platform}.
+    prompt = `Buat konten social media tentang "${topic}" untuk platform ${platform} menggunakan SLAP Framework.
 
-Syarat:
+STRUKTUR YANG HARUS DIIKUTI:
+1. HOOK (Stop): Mulai dengan opening yang powerful - bisa berupa:
+   - Pertanyaan yang bikin penasaran
+   - Statement kontroversial/mengejutkan
+   - Pain point yang relatable
+   - Angka/fakta yang wow
+
+2. VALUE (Look): Berikan insight atau informasi menarik:
+   - Ceritakan story yang engaging
+   - Jelaskan pain point dan solusinya
+   - Berikan fakta/data yang mendukung
+   
+3. ACTION (Act): Berikan value konkret:
+   - Tips actionable (gunakan bullet points atau numbering)
+   - Solusi praktis yang bisa langsung diterapkan
+   - Step-by-step jika diperlukan
+
+4. ENGAGEMENT (Purchase): Tutup dengan strong CTA:
+   - Ajakan bertindak yang jelas
+   - Pertanyaan engaging untuk diskusi
+   - Dorongan untuk save/share/comment
+
+REQUIREMENTS:
 - Maksimal ${maxLength} karakter
-- ${includeHashtags ? 'Sertakan 3-5 hashtag yang relevan' : 'Tidak perlu hashtag'}
-- Engaging dan menarik perhatian
-- Sesuai dengan platform ${platform}
-- Tulis dalam bahasa Indonesia
+- ${includeHashtags ? 'Sertakan 3-5 hashtag strategis di akhir' : 'Tidak perlu hashtag'}
+- MINIMAL emoji (maksimal 1-2 saja, atau tidak pakai sama sekali)
+- Line breaks untuk readability
+- Bahasa Indonesia yang natural seperti orang ngobrol
+- Hindari kata-kata klise seperti "game-changer", "next level", "secret sauce"
+- Tulis seperti manusia yang sharing pengalaman atau insight
+- Platform: ${platform}
 
-Tulis HANYA konten post-nya, tanpa penjelasan tambahan!`
+CONTOH STRUKTUR:
+[Hook yang kuat dan natural - tanpa emoji berlebihan]
+
+[Story/context yang relatable - cerita seperti manusia biasa]
+
+[Value/tips dengan bullets:]
+- Poin 1 (ditulis dengan bahasa natural)
+- Poin 2 (fokus pada benefit konkret)
+- Poin 3 (actionable dan praktis)
+
+[CTA atau pertanyaan engaging yang genuine]
+
+${includeHashtags ? '[Hashtags]' : ''}
+
+Tulis HANYA konten postnya, mulai langsung dari hook! Jangan terdengar seperti AI atau marketing copy yang pushy.`
   } else {
-    prompt = `Create social media content about "${topic}" for ${platform}.
+    prompt = `Create social media content about "${topic}" for ${platform} using SLAP Framework.
 
-Requirements:
+STRUCTURE TO FOLLOW:
+1. HOOK (Stop): Start with powerful opening - could be:
+   - Curiosity-inducing question
+   - Controversial/surprising statement
+   - Relatable pain point
+   - Wow numbers/facts
+
+2. VALUE (Look): Provide interesting insights:
+   - Tell engaging story
+   - Explain pain point and solution
+   - Provide supporting facts/data
+   
+3. ACTION (Act): Deliver concrete value:
+   - Actionable tips (use bullet points or numbering)
+   - Practical solutions to implement
+   - Step-by-step if needed
+
+4. ENGAGEMENT (Purchase): Close with strong CTA:
+   - Clear call-to-action
+   - Engaging question for discussion
+   - Encouragement to save/share/comment
+
+REQUIREMENTS:
 - Maximum ${maxLength} characters
-- ${includeHashtags ? 'Include 3-5 relevant hashtags' : 'No hashtags needed'}
-- Engaging and attention-grabbing
-- Platform-appropriate for ${platform}
-- Write in English
+- ${includeHashtags ? 'Include 3-5 strategic hashtags at the end' : 'No hashtags needed'}
+- MINIMAL emojis (max 1-2 only, or none at all)
+- Line breaks for readability
+- Natural conversational English like real people talk
+- Avoid clichés like "game-changer", "next level", "secret sauce"
+- Write like a human sharing experience or insight
+- Platform: ${platform}
 
-Write ONLY the post content, no additional explanations!`
+EXAMPLE STRUCTURE:
+[Strong and natural hook - without excessive emojis]
+
+[Relatable story/context - written like a real person]
+
+[Value/tips with bullets:]
+- Point 1 (written in natural language)
+- Point 2 (focus on concrete benefits)
+- Point 3 (actionable and practical)
+
+[Genuine CTA or engaging question]
+
+${includeHashtags ? '[Hashtags]' : ''}
+
+Write ONLY the post content, start directly with the hook! Don't sound like AI or pushy marketing copy.`
   }
 
   return prompt
