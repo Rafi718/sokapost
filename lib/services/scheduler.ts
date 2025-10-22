@@ -3,8 +3,12 @@ import { prisma } from '@/lib/prisma'
 import { publishThreadsPost } from '@/lib/api/threads'
 import { publishInstagramPost, publishInstagramCarousel } from '@/lib/api/instagram'
 import { decryptToken } from '@/lib/utils/encryption'
+import { metricsCollector } from './scheduler-metrics'
 
 let schedulerJob: ScheduledTask | null = null
+
+// Initialize metrics
+metricsCollector.initScheduler('post-scheduler')
 
 // Track if scheduler was started in any instance
 const SCHEDULER_FLAG_KEY = '__scheduler_running__'
@@ -39,6 +43,10 @@ export function startPostScheduler() {
 
   // Run every minute
   schedulerJob = cron.schedule('* * * * *', async () => {
+    const startTime = Date.now()
+    let postsProcessed = 0
+    let postsFailed = 0
+
     try {
       const now = new Date()
       console.log(`🔍 Checking for posts to publish at ${now.toISOString()}`)
@@ -106,6 +114,7 @@ export function startPostScheduler() {
               }
             })
 
+            postsProcessed++
             console.log(`✅ Published post ${post.id} to Threads`)
           } else if (post.platform === 'instagram') {
             const account = post.user.instagramAccounts[0]
@@ -158,9 +167,11 @@ export function startPostScheduler() {
               }
             })
 
+            postsProcessed++
             console.log(`✅ Published post ${post.id} to Instagram`)
           }
         } catch (error: any) {
+          postsFailed++
           console.error(`❌ Failed to publish post ${post.id}:`, error)
           console.error('Error details:', {
             message: error.message,
@@ -181,12 +192,32 @@ export function startPostScheduler() {
       if (postsToPublish.length === 0) {
         console.log('✨ No posts to publish at this time')
       }
-    } catch (error) {
+
+      // Record successful execution
+      const executionTimeMs = Date.now() - startTime
+      metricsCollector.recordExecution('post-scheduler', {
+        success: true,
+        itemsProcessed: postsProcessed,
+        itemsFailed: postsFailed,
+        executionTimeMs
+      })
+    } catch (error: any) {
       console.error('Post scheduler error:', error)
+      
+      // Record failed execution
+      const executionTimeMs = Date.now() - startTime
+      metricsCollector.recordExecution('post-scheduler', {
+        success: false,
+        itemsProcessed: postsProcessed,
+        itemsFailed: postsFailed,
+        executionTimeMs,
+        error: error.message || 'Unknown error'
+      })
     }
   })
 
   setSchedulerRunning(true)
+  metricsCollector.setRunning('post-scheduler', true)
   console.log('📅 Post scheduler started - checking every minute')
 }
 
@@ -195,6 +226,7 @@ export function stopPostScheduler() {
     schedulerJob.stop()
     schedulerJob = null
     setSchedulerRunning(false)
+    metricsCollector.setRunning('post-scheduler', false)
     console.log('⏹️ Post scheduler stopped')
   }
 }
@@ -203,9 +235,13 @@ export function getSchedulerStatus() {
   // Check both local and global state
   const localRunning = schedulerJob !== null
   const globalRunning = isSchedulerRunning()
+  const metrics = metricsCollector.getMetrics('post-scheduler')
+  const health = metricsCollector.getHealthStatus('post-scheduler')
   
   return {
-    running: localRunning || globalRunning
+    running: localRunning || globalRunning,
+    metrics,
+    health
   }
 }
 

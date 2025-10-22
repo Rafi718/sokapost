@@ -4,8 +4,12 @@ import { decryptToken } from '@/lib/utils/encryption'
 import { fetchThreadsConversation, sendThreadsReply } from '@/lib/api/threads'
 import { generateAIReply } from '@/lib/auto-reply/ai-generator'
 import { findMatchingKeyword, shouldExcludeMessage } from '@/lib/auto-reply/keyword-matcher'
+import { metricsCollector } from './scheduler-metrics'
 
 let isSchedulerRunning = false
+
+// Initialize metrics
+metricsCollector.initScheduler('auto-reply-scheduler')
 
 // Configurable interval (default: 5 minutes, or 1 minute for testing)
 const CRON_INTERVAL = process.env.AUTO_REPLY_CRON_INTERVAL || '*/5 * * * *'
@@ -48,24 +52,73 @@ export function startAutoReplyScheduler() {
 
   // Run based on configured interval
   const task = cron.schedule(CRON_INTERVAL, async () => {
+    const startTime = Date.now()
+    let repliesProcessed = 0
+    let repliesFailed = 0
+
     try {
       const now = new Date().toLocaleTimeString('id-ID')
       console.log(`🤖 [Auto-Reply] Starting job at ${now}...`)
-      await processAutoReplies()
+      const result = await processAutoReplies()
+      repliesProcessed = result.processed
+      repliesFailed = result.failed
       console.log(`✅ [Auto-Reply] Job completed at ${now}`)
-    } catch (error) {
+      
+      // Record successful execution
+      const executionTimeMs = Date.now() - startTime
+      metricsCollector.recordExecution('auto-reply-scheduler', {
+        success: true,
+        itemsProcessed: repliesProcessed,
+        itemsFailed: repliesFailed,
+        executionTimeMs
+      })
+    } catch (error: any) {
       console.error('❌ [Auto-Reply] Job failed:', error)
+      
+      // Record failed execution
+      const executionTimeMs = Date.now() - startTime
+      metricsCollector.recordExecution('auto-reply-scheduler', {
+        success: false,
+        itemsProcessed: repliesProcessed,
+        itemsFailed: repliesFailed,
+        executionTimeMs,
+        error: error.message || 'Unknown error'
+      })
     }
   })
 
   isSchedulerRunning = true
+  metricsCollector.setRunning('auto-reply-scheduler', true)
   const startTime = new Date().toLocaleTimeString('id-ID')
   console.log(`🤖 [Auto-Reply] Scheduler started at ${startTime}`)
   console.log(`🤖 [Auto-Reply] Interval: ${INTERVAL_DESCRIPTION} (${CRON_INTERVAL})`)
   console.log(`🤖 [Auto-Reply] Watch console for: "🤖 [Auto-Reply] Starting job at..." messages`)
 }
 
-async function processAutoReplies() {
+export function stopAutoReplyScheduler() {
+  if (isSchedulerRunning) {
+    isSchedulerRunning = false
+    metricsCollector.setRunning('auto-reply-scheduler', false)
+    console.log('⏹️ Auto-reply scheduler stopped')
+  }
+}
+
+export function getAutoReplySchedulerStatus() {
+  const metrics = metricsCollector.getMetrics('auto-reply-scheduler')
+  const health = metricsCollector.getHealthStatus('auto-reply-scheduler')
+  
+  return {
+    running: isSchedulerRunning,
+    interval: INTERVAL_DESCRIPTION,
+    metrics,
+    health
+  }
+}
+
+async function processAutoReplies(): Promise<{ processed: number; failed: number }> {
+  let totalProcessed = 0
+  let totalFailed = 0
+
   // Get all users with auto-reply enabled
   const users = await prisma.user.findMany({
     where: {
@@ -89,26 +142,34 @@ async function processAutoReplies() {
 
   if (users.length === 0) {
     console.log('ℹ️ [Scheduler] No users with auto-reply enabled')
-    return
+    return { processed: 0, failed: 0 }
   }
 
   console.log(`👥 [Scheduler] Found ${users.length} users with auto-reply enabled`)
 
   for (const user of users) {
     try {
-      await processUserReplies(user)
+      const result = await processUserReplies(user)
+      totalProcessed += result.processed
+      totalFailed += result.failed
     } catch (error) {
       console.error(`❌ [Scheduler] Failed to process replies for user ${user.id}:`, error)
+      totalFailed++
     }
   }
+
+  return { processed: totalProcessed, failed: totalFailed }
 }
 
-async function processUserReplies(user: any) {
+async function processUserReplies(user: any): Promise<{ processed: number; failed: number }> {
+  let repliesProcessed = 0
+  let repliesFailed = 0
+
   const settings = user.autoReplySettings[0] // Get first (threads) settings
   
   if (!settings) {
     console.log(`⚠️ [Scheduler] User ${user.id} has no auto-reply settings`)
-    return
+    return { processed: 0, failed: 0 }
   }
   
   console.log(`🔧 [Scheduler] User ${user.id} settings:`, {
@@ -125,14 +186,14 @@ async function processUserReplies(user: any) {
 
   if (!threadsAccount) {
     console.log(`⚠️ [Scheduler] User ${user.id} has no Threads account connected`)
-    return
+    return { processed: 0, failed: 0 }
   }
 
   // Check rate limit
   const currentCount = getReplyCount(user.id)
   if (currentCount >= settings.maxRepliesPerHour) {
     console.log(`⏸️ [Scheduler] User ${user.id} reached rate limit (${currentCount}/${settings.maxRepliesPerHour})`)
-    return
+    return { processed: 0, failed: 0 }
   }
 
   // Decrypt token
@@ -170,7 +231,7 @@ async function processUserReplies(user: any) {
     } catch (e: any) {
       console.error(`❌ [Scheduler] Failed to parse selectedPostIds: ${e.message}`)
       console.error(`❌ [Scheduler] Raw value: ${settings.selectedPostIds}`)
-      return
+      return { processed: 0, failed: 0 }
     }
   } else {
     console.log(`⚠️ [Scheduler] monitorAllPosts=false but no selectedPostIds`)
@@ -179,7 +240,7 @@ async function processUserReplies(user: any) {
   if (postIds.length === 0) {
     console.log(`ℹ️ [Scheduler] User ${user.id} has no posts to monitor`)
     console.log(`💡 [Scheduler] Either enable monitorAllPosts=true OR select specific posts`)
-    return
+    return { processed: 0, failed: 0 }
   }
 
   console.log(`📝 Monitoring ${postIds.length} posts for user ${user.id}`)
@@ -187,7 +248,9 @@ async function processUserReplies(user: any) {
   // Process each post
   for (const postId of postIds) {
     try {
-      await processPostReplies(user, settings, threadsAccount, postId, accessToken)
+      const result = await processPostReplies(user, settings, threadsAccount, postId, accessToken)
+      repliesProcessed += result.processed
+      repliesFailed += result.failed
       
       // Check if we hit rate limit
       if (getReplyCount(user.id) >= settings.maxRepliesPerHour) {
@@ -196,8 +259,11 @@ async function processUserReplies(user: any) {
       }
     } catch (error) {
       console.error(`❌ Failed to process post ${postId}:`, error)
+      repliesFailed++
     }
   }
+
+  return { processed: repliesProcessed, failed: repliesFailed }
 }
 
 async function processPostReplies(
@@ -206,7 +272,9 @@ async function processPostReplies(
   threadsAccount: any,
   postId: string,
   accessToken: string
-) {
+): Promise<{ processed: number; failed: number }> {
+  let repliesProcessed = 0
+  let repliesFailed = 0
   // Fetch all replies for this post
   const conversation = await fetchThreadsConversation({
     accessToken,
@@ -215,7 +283,7 @@ async function processPostReplies(
   })
 
   if (!conversation.data || conversation.data.length === 0) {
-    return
+    return { processed: 0, failed: 0 }
   }
 
   console.log(`💬 Found ${conversation.data.length} replies on post ${postId}`)
@@ -474,9 +542,11 @@ async function processPostReplies(
         }
       })
 
+      repliesProcessed++
       console.log(`✅ Reply sent successfully: ${ourReplyId}`)
 
     } catch (error: any) {
+      repliesFailed++
       console.error(`❌ Failed to reply to ${reply.id}:`, error)
       
       // Check if we already created a "processing" record
@@ -514,4 +584,6 @@ async function processPostReplies(
       }
     }
   }
+
+  return { processed: repliesProcessed, failed: repliesFailed }
 }

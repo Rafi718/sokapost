@@ -14,7 +14,8 @@ import {
   FiFileText,
   FiLink,
   FiTrendingUp,
-  FiMessageSquare
+  FiMessageSquare,
+  FiActivity
 } from 'react-icons/fi'
 import { MdAutoAwesome } from 'react-icons/md'
 import axios from 'axios'
@@ -37,6 +38,7 @@ const threadsMenuItems = [
 // Comments/Insights not available due to API limitations
 
 const bottomItems = [
+  { name: 'Rate Limits', href: '/rate-limits', icon: FiActivity },
   { name: 'Connections', href: '/connections', icon: FiLink },
   { name: 'Settings', href: '/settings', icon: FiSettings },
   { name: 'Help', href: '/help', icon: FiHelpCircle },

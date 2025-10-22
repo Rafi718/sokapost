@@ -43,7 +43,9 @@ export async function GET() {
     return NextResponse.json({
       scheduler: {
         running: schedulerStatus.running,
-        currentTime: now.toISOString()
+        currentTime: now.toISOString(),
+        health: schedulerStatus.health,
+        metrics: schedulerStatus.metrics
       },
       posts: {
         totalScheduled: scheduledPosts.length,

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from '@/lib/auth-api'
+import { getAutoReplySchedulerStatus } from '@/lib/services/auto-reply-scheduler'
 
 // GET - Check scheduler status
 export async function GET() {
@@ -9,15 +10,20 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if scheduler module is loaded
-    const schedulerModule = await import('@/lib/services/auto-reply-scheduler')
+    // Get detailed scheduler status with metrics
+    const status = getAutoReplySchedulerStatus()
     
     return NextResponse.json({
       success: true,
       scheduler: {
         loaded: true,
-        interval: '5 minutes',
-        status: 'The scheduler should be running in the background'
+        running: status.running,
+        interval: status.interval,
+        health: status.health,
+        metrics: status.metrics,
+        status: status.running 
+          ? 'Scheduler is running in the background' 
+          : 'Scheduler is stopped'
       },
       tip: 'Check server console logs for scheduler activity like: 🤖 [Auto-Reply] Starting job...'
     })
