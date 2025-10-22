@@ -25,6 +25,7 @@ model User {
   posts              Post[]
   autoReplySettings  AutoReplySettings[]
   autoContentSettings AutoContentSettings[]
+  topicLibrary       TopicLibrary[]
   sessions           Session[]
   accounts           Account[]
 
@@ -134,6 +135,11 @@ model Post {
   topic           String?
   location        String?
   errorMessage    String?
+  
+  // For split content continuation
+  continuationParts String?  // JSON array of continuation texts
+  commentsPosted    Boolean  @default(false)
+  
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -142,6 +148,7 @@ model Post {
   @@index([userId])
   @@index([status])
   @@index([scheduledAt])
+  @@index([commentsPosted])
   @@map("posts")
 }
 
@@ -335,4 +342,46 @@ model AutoContentHistory {
   @@index([settingId])
   @@index([status])
   @@map("auto_content_history")
+}
+
+model TopicLibrary {
+  id          String   @id @default(cuid())
+  userId      String
+  topic       String
+  category    String?  // Optional: "marketing", "motivation", "tips", etc
+  description String?  // Optional description
+  usageCount  Int      @default(0)
+  lastUsedAt  DateTime?
+  createdAt   DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([category])
+  @@map("topic_library")
+}
+
+model CommentLog {
+  id              String   @id @default(cuid())
+  postId          String   // Reference to Post
+  userId          String
+  
+  // Comment details
+  commentNumber   Int      // 1, 2, 3 (which part)
+  totalComments   Int      // Total parts
+  commentText     String   // The comment content
+  commentId       String?  // Threads comment ID (if successful)
+  
+  // Status
+  status          String   // "pending", "success", "failed"
+  errorMessage    String?
+  
+  // Timestamps
+  attemptedAt     DateTime @default(now())
+  succeededAt     DateTime?
+  
+  @@index([postId])
+  @@index([userId])
+  @@index([status])
+  @@map("comment_logs")
 }

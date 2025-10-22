@@ -2,6 +2,9 @@ import cron, { ScheduledTask } from 'node-cron'
 import { prisma } from '@/lib/prisma'
 import { generateContent } from '@/lib/ai/content-generator'
 import { metricsCollector } from './scheduler-metrics'
+import { smartSplitText } from '@/lib/utils/text-splitter'
+import { createThreadsCommentThread } from '@/lib/api/threads-comment'
+import { decryptToken } from '@/lib/utils/encryption'
 
 let autoContentJob: ScheduledTask | null = null
 
@@ -115,18 +118,25 @@ async function generateAndPublishContent(settingId: string) {
     console.log(`🤖 Generating content for setting ${settingId}...`)
     console.log(`Topic: ${setting.topic}, Platform: ${setting.platform}`)
 
-    // Generate content using AI
-    const content = await generateContent({
+    // Generate content using AI with higher limit (will be split later)
+    const fullContent = await generateContent({
       topic: setting.topic,
       tone: setting.tone,
       language: setting.language,
-      maxLength: setting.maxLength,
+      maxLength: 2000, // Generate up to 2000 chars
       includeHashtags: setting.includeHashtags,
       customPrompt: setting.customPrompt,
       platform: setting.platform
     })
 
-    console.log(`✅ Content generated (${content.length} chars)`)
+    console.log(`✅ Content generated (${fullContent.length} chars)`)
+
+    // Split content if needed (500 chars per part)
+    const { parts } = smartSplitText(fullContent, setting.maxLength || 500)
+    const mainContent = parts[0]
+    const continuationParts = parts.slice(1)
+
+    console.log(`📝 Content split into ${parts.length} part(s)`)
 
     // Determine platforms to publish
     const platforms = setting.platform === 'both' ? ['threads', 'instagram'] : [setting.platform]
@@ -142,27 +152,36 @@ async function generateAndPublishContent(settingId: string) {
         continue
       }
 
-      // Create post
+      // Create main post with first part
       const post = await prisma.post.create({
         data: {
           userId: setting.userId,
-          content: content,
+          content: mainContent,
           platform: platform,
           status: setting.autoPublish ? 'scheduled' : 'draft',
           scheduledAt: setting.autoPublish ? new Date() : null,
-          topic: setting.topic
+          topic: setting.topic,
+          // Store continuation parts in DB for later processing
+          continuationParts: continuationParts.length > 0 
+            ? JSON.stringify(continuationParts) 
+            : null,
+          commentsPosted: false
         }
       })
 
       console.log(`📝 Post created: ${post.id} (${platform}, status: ${post.status})`)
+      
+      if (continuationParts.length > 0) {
+        console.log(`💬 ${continuationParts.length} continuation parts stored, will be posted after publish`)
+      }
 
-      // Create history entry
+      // Create history entry with full content
       await prisma.autoContentHistory.create({
         data: {
           userId: setting.userId,
           settingId: setting.id,
           topic: setting.topic,
-          generatedContent: content,
+          generatedContent: fullContent, // Store full content in history
           aiModel: setting.aiModel,
           postId: post.id,
           status: setting.autoPublish ? 'published' : 'generated'

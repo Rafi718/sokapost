@@ -86,11 +86,15 @@ FORMAT:
 - Opening hook yang KUAT dan NATURAL (1-2 kalimat)
 - Body yang valuable dan actionable
 - Closing dengan CTA atau pertanyaan engaging
+- JANGAN gunakan markdown formatting (* ** ___ untuk bold/italic)
+- Gunakan PLAIN TEXT saja tanpa formatting special
+- Untuk emphasis, gunakan kapitalisasi atau line break, BUKAN asterisk
 
 PENTING: 
 - Tulis HANYA konten postnya, tanpa label "STOP", "LOOK", dsb
 - Buat konten yang flow natural seperti manusia ngobrol
-- Jangan terdengar seperti AI yang terlalu formal atau terlalu excited`
+- Jangan terdengar seperti AI yang terlalu formal atau terlalu excited
+- NO MARKDOWN: Jangan pakai *, **, ***, __, ___, atau formatting markdown lainnya`
   } else {
     return `You are a professional copywriter expert in creating converting social media content using the SLAP framework (Stop, Look, Act, Purchase).
 
@@ -115,11 +119,15 @@ FORMAT:
 - Strong and NATURAL opening hook (1-2 sentences)
 - Valuable and actionable body
 - Closing with CTA or engaging question
+- DO NOT use markdown formatting (* ** ___ for bold/italic)
+- Use PLAIN TEXT only without special formatting
+- For emphasis, use capitalization or line break, NOT asterisks
 
 IMPORTANT: 
 - Write ONLY the post content, without labels like "STOP", "LOOK", etc
 - Make content flow naturally like human conversation
-- Don't sound like AI that's too formal or too excited`
+- Don't sound like AI that's too formal or too excited
+- NO MARKDOWN: Don't use *, **, ***, __, ___, or any markdown formatting`
   }
 }
 
@@ -154,13 +162,14 @@ STRUKTUR YANG HARUS DIIKUTI:
    - Dorongan untuk save/share/comment
 
 REQUIREMENTS:
-- Maksimal ${maxLength} karakter
+- Maksimal ${maxLength} karakter (PENTING: jangan melebihi ini, tutup dengan natural!)
 - ${includeHashtags ? 'Sertakan 3-5 hashtag strategis di akhir' : 'Tidak perlu hashtag'}
 - MINIMAL emoji (maksimal 1-2 saja, atau tidak pakai sama sekali)
 - Line breaks untuk readability
 - Bahasa Indonesia yang natural seperti orang ngobrol
 - Hindari kata-kata klise seperti "game-changer", "next level", "secret sauce"
 - Tulis seperti manusia yang sharing pengalaman atau insight
+- Tutup konten dengan kalimat yang complete, jangan putus di tengah
 - Platform: ${platform}
 
 CONTOH STRUKTUR:
@@ -168,16 +177,17 @@ CONTOH STRUKTUR:
 
 [Story/context yang relatable - cerita seperti manusia biasa]
 
-[Value/tips dengan bullets:]
-- Poin 1 (ditulis dengan bahasa natural)
-- Poin 2 (fokus pada benefit konkret)
-- Poin 3 (actionable dan praktis)
+[Value/tips dengan bullets - GUNAKAN PLAIN TEXT:]
+Poin 1 (ditulis dengan bahasa natural, tanpa asterisk)
+Poin 2 (fokus pada benefit konkret, tanpa bold/italic)
+Poin 3 (actionable dan praktis, plain text saja)
 
 [CTA atau pertanyaan engaging yang genuine]
 
 ${includeHashtags ? '[Hashtags]' : ''}
 
-Tulis HANYA konten postnya, mulai langsung dari hook! Jangan terdengar seperti AI atau marketing copy yang pushy.`
+Tulis HANYA konten postnya, mulai langsung dari hook! 
+PENTING: JANGAN gunakan * atau ** untuk formatting. Gunakan plain text natural saja seperti orang chat biasa.`
   } else {
     prompt = `Create social media content about "${topic}" for ${platform} using SLAP Framework.
 
@@ -204,13 +214,14 @@ STRUCTURE TO FOLLOW:
    - Encouragement to save/share/comment
 
 REQUIREMENTS:
-- Maximum ${maxLength} characters
+- Maximum ${maxLength} characters (IMPORTANT: don't exceed this, end naturally!)
 - ${includeHashtags ? 'Include 3-5 strategic hashtags at the end' : 'No hashtags needed'}
 - MINIMAL emojis (max 1-2 only, or none at all)
 - Line breaks for readability
 - Natural conversational English like real people talk
 - Avoid clichés like "game-changer", "next level", "secret sauce"
 - Write like a human sharing experience or insight
+- End content with complete sentence, don't cut off mid-thought
 - Platform: ${platform}
 
 EXAMPLE STRUCTURE:
@@ -218,16 +229,17 @@ EXAMPLE STRUCTURE:
 
 [Relatable story/context - written like a real person]
 
-[Value/tips with bullets:]
-- Point 1 (written in natural language)
-- Point 2 (focus on concrete benefits)
-- Point 3 (actionable and practical)
+[Value/tips with bullets - USE PLAIN TEXT:]
+Point 1 (written in natural language, no asterisks)
+Point 2 (focus on concrete benefits, no bold/italic)
+Point 3 (actionable and practical, plain text only)
 
 [Genuine CTA or engaging question]
 
 ${includeHashtags ? '[Hashtags]' : ''}
 
-Write ONLY the post content, start directly with the hook! Don't sound like AI or pushy marketing copy.`
+Write ONLY the post content, start directly with the hook! 
+IMPORTANT: DO NOT use * or ** for formatting. Use natural plain text like normal people chat.`
   }
 
   return prompt
@@ -320,10 +332,98 @@ export async function generateContent(params: GenerateContentParams): Promise<st
 
     // Remove quotes if AI wraps content in quotes
     text = text.replace(/^["']|["']$/g, '')
+    
+    // Remove markdown formatting (*, **, ___, etc)
+    // Remove bold markers
+    text = text.replace(/\*\*\*(.+?)\*\*\*/g, '$1') // Bold+Italic
+    text = text.replace(/\*\*(.+?)\*\*/g, '$1')     // Bold
+    text = text.replace(/\*(.+?)\*/g, '$1')         // Italic
+    text = text.replace(/__(.+?)__/g, '$1')         // Bold (underscore)
+    text = text.replace(/_(.+?)_/g, '$1')           // Italic (underscore)
+    
+    // Clean up any remaining stray asterisks
+    text = text.replace(/\*+/g, '')
+    text = text.replace(/_+/g, '')
 
-    // Ensure max length
+    // Ensure max length - cut at sentence end if possible, but preserve hashtags
     if (text.length > params.maxLength) {
-      text = text.substring(0, params.maxLength - 3) + '...'
+      // Check if there are hashtags at the end
+      const hashtagRegex = /#[\w\u00C0-\u017F]+/g
+      const hasHashtags = text.match(hashtagRegex)
+      
+      if (hasHashtags && params.includeHashtags) {
+        // Find where hashtags start (usually after last sentence before hashtags)
+        const lines = text.split('\n')
+        let mainContentLength = 0
+        let hashtagsText = ''
+        
+        // Find the line where hashtags start
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim()
+          if (line.startsWith('#') || /^[\s#]/.test(line) && line.includes('#')) {
+            // This line contains hashtags
+            hashtagsText = lines.slice(i).join('\n')
+            break
+          }
+          mainContentLength += lines[i].length + 1 // +1 for newline
+        }
+        
+        if (hashtagsText && mainContentLength > 0) {
+          // We found hashtags, try to fit main content + hashtags within limit
+          const availableForContent = params.maxLength - hashtagsText.length - 10 // -10 for safety
+          
+          if (availableForContent > params.maxLength * 0.6) {
+            // Cut main content smartly
+            const mainContent = text.substring(0, mainContentLength - 1)
+            let cutContent = mainContent.substring(0, availableForContent)
+            
+            // Try to cut at sentence end
+            const lastPeriod = cutContent.lastIndexOf('.')
+            const lastQuestion = cutContent.lastIndexOf('?')
+            const lastExclamation = cutContent.lastIndexOf('!')
+            const cutPoint = Math.max(lastPeriod, lastQuestion, lastExclamation)
+            
+            if (cutPoint > availableForContent * 0.7) {
+              cutContent = cutContent.substring(0, cutPoint + 1).trim()
+            } else {
+              cutContent = cutContent.trim()
+            }
+            
+            text = cutContent + '\n\n' + hashtagsText
+          } else {
+            // Not enough space, cut everything at maxLength
+            text = text.substring(0, params.maxLength).trim()
+          }
+        } else {
+          // Couldn't parse hashtags properly, cut at sentence
+          const cutText = text.substring(0, params.maxLength)
+          const lastPeriod = cutText.lastIndexOf('.')
+          const lastQuestion = cutText.lastIndexOf('?')
+          const lastExclamation = cutText.lastIndexOf('!')
+          const cutPoint = Math.max(lastPeriod, lastQuestion, lastExclamation)
+          
+          if (cutPoint > params.maxLength * 0.8) {
+            text = text.substring(0, cutPoint + 1).trim()
+          } else {
+            text = text.substring(0, params.maxLength).trim()
+          }
+        }
+      } else {
+        // No hashtags or not including them, cut normally
+        const cutText = text.substring(0, params.maxLength)
+        const lastPeriod = cutText.lastIndexOf('.')
+        const lastNewline = cutText.lastIndexOf('\n')
+        const lastQuestion = cutText.lastIndexOf('?')
+        const lastExclamation = cutText.lastIndexOf('!')
+        
+        const cutPoint = Math.max(lastPeriod, lastNewline, lastQuestion, lastExclamation)
+        
+        if (cutPoint > params.maxLength * 0.8) {
+          text = text.substring(0, cutPoint + 1).trim()
+        } else {
+          text = text.substring(0, params.maxLength).trim()
+        }
+      }
     }
 
     console.log('✅ Content generated:', text.substring(0, 100) + (text.length > 100 ? '...' : ''))
