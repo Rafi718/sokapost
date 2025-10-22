@@ -60,31 +60,48 @@ export async function createThreadsComment(params: ThreadsCommentParams): Promis
 
 /**
  * Post multiple comments in sequence (for split content)
+ * Comments will be chained - each comment replies to the previous one
  */
 export async function createThreadsCommentThread(
   params: Omit<ThreadsCommentParams, 'text'> & { texts: string[] }
 ): Promise<string[]> {
   const { texts, ...baseParams } = params
   const commentIds: string[] = []
+  
+  // Start with main post ID
+  let currentReplyToId = baseParams.postId
 
   for (let i = 0; i < texts.length; i++) {
     const text = texts[i]
     
     try {
+      console.log(`[Threads Comment Thread] Posting comment ${i + 1}/${texts.length}`)
+      console.log(`   Reply to: ${currentReplyToId}`)
+      
       const commentId = await createThreadsComment({
         ...baseParams,
+        postId: currentReplyToId, // Reply to previous comment (chain)
         text
       })
       
       commentIds.push(commentId)
+      console.log(`   ✅ Comment posted: ${commentId}`)
       
-      // Small delay between comments to avoid rate limiting
+      // Update reply_to_id for next comment (chain)
+      currentReplyToId = commentId
+      
+      // Delay between comments to avoid rate limiting
       if (i < texts.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 2000))
+        console.log(`   ⏳ Waiting 3 seconds before next comment...`)
+        await new Promise(resolve => setTimeout(resolve, 3000))
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[Threads Comment Thread] Failed at part ${i + 1}:`, error)
-      // Continue with remaining parts even if one fails
+      console.error(`   Error: ${error.message}`)
+      
+      // STOP if one fails - don't continue
+      // Otherwise comments won't be chained properly
+      throw error
     }
   }
 

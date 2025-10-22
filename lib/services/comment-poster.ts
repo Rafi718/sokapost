@@ -122,34 +122,37 @@ export function startCommentPoster() {
           const accessToken = decryptToken(account.accessToken)
           const totalParts = continuationParts.length
 
-          // Post comments one by one with logging
+          // Post comments one by one with logging (chained)
           const commentIds: string[] = []
+          let currentReplyToId = post.threadsPostId! // Start with main post
+          
           for (let i = 0; i < continuationParts.length; i++) {
             const commentText = continuationParts[i]
             const commentNum = i + 1
             
+            // Create log entry - pending
+            const logEntry = await prisma.commentLog.create({
+              data: {
+                postId: post.id,
+                userId: post.userId,
+                commentNumber: commentNum,
+                totalComments: totalParts,
+                commentText: commentText,
+                status: 'pending'
+              }
+            })
+            
             try {
               console.log(`   📤 Posting comment ${commentNum}/${totalParts}...`)
               console.log(`      Length: ${commentText.length} chars`)
+              console.log(`      Reply to: ${currentReplyToId}`)
               
-              // Create log entry - pending
-              const logEntry = await prisma.commentLog.create({
-                data: {
-                  postId: post.id,
-                  userId: post.userId,
-                  commentNumber: commentNum,
-                  totalComments: totalParts,
-                  commentText: commentText,
-                  status: 'pending'
-                }
-              })
-              
-              // Post comment to Threads
+              // Post comment to Threads (chained)
               const { createThreadsComment } = await import('@/lib/api/threads-comment')
               const commentId = await createThreadsComment({
                 accessToken,
                 userId: account.threadsUserId,
-                postId: post.threadsPostId!,
+                postId: currentReplyToId, // Reply to previous comment
                 text: commentText
               })
               
@@ -168,28 +171,30 @@ export function startCommentPoster() {
               console.log(`   ✅ Comment ${commentNum}/${totalParts} posted successfully`)
               console.log(`      Comment ID: ${commentId}`)
               
+              // Update reply_to_id for next comment (chain)
+              currentReplyToId = commentId
+              
               // Delay between comments (except last one)
               if (i < continuationParts.length - 1) {
-                console.log(`   ⏳ Waiting 2 seconds...`)
-                await new Promise(resolve => setTimeout(resolve, 2000))
+                console.log(`   ⏳ Waiting 3 seconds...`)
+                await new Promise(resolve => setTimeout(resolve, 3000))
               }
             } catch (commentError: any) {
               console.error(`   ❌ Failed to post comment ${commentNum}/${totalParts}:`, commentError.message)
               
               // Update log - failed
-              await prisma.commentLog.updateMany({
-                where: {
-                  postId: post.id,
-                  commentNumber: commentNum,
-                  status: 'pending'
-                },
+              await prisma.commentLog.update({
+                where: { id: logEntry.id },
                 data: {
                   status: 'failed',
                   errorMessage: commentError.message || 'Unknown error'
                 }
               })
               
-              // Continue with remaining comments
+              // STOP if one fails - can't continue chain
+              console.error(`   ⛔ Stopping comment chain due to failure`)
+              postsFailed++
+              break
             }
           }
 
