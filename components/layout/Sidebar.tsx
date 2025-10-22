@@ -15,7 +15,8 @@ import {
   FiLink,
   FiTrendingUp,
   FiMessageSquare,
-  FiActivity
+  FiActivity,
+  FiZap
 } from 'react-icons/fi'
 import { MdAutoAwesome } from 'react-icons/md'
 import axios from 'axios'
@@ -31,6 +32,7 @@ const threadsMenuItems = [
   { name: 'Insights', href: '/insights', icon: FiBarChart2 },
   { name: 'Comments', href: '/threads-comments', icon: FiMessageSquare },
   { name: 'Auto Reply', href: '/auto-reply', icon: MdAutoAwesome },
+  { name: 'Auto Content', href: '/auto-content', icon: FiZap },
   { name: 'Search', href: '/search', icon: FiSearch },
 ]
 

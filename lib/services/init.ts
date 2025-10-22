@@ -1,6 +1,7 @@
 import { startPostScheduler } from './scheduler'
 import { startTokenRefreshJob } from './token-refresh'
 import { startAutoReplyScheduler } from './auto-reply-scheduler'
+import { startAutoContentGenerator } from './auto-content-generator'
 
 let initialized = false
 
@@ -21,6 +22,9 @@ export function initializeBackgroundJobs() {
   // Start auto-reply scheduler
   startAutoReplyScheduler()
 
+  // Start auto-content generator
+  startAutoContentGenerator()
+
   initialized = true
   console.log('✅ Background jobs initialized')
 }
@@ -28,9 +32,11 @@ export function initializeBackgroundJobs() {
 export function shutdownBackgroundJobs() {
   const { stopPostScheduler } = require('./scheduler')
   const { stopTokenRefreshJob } = require('./token-refresh')
+  const { stopAutoContentGenerator } = require('./auto-content-generator')
 
   stopPostScheduler()
   stopTokenRefreshJob()
+  stopAutoContentGenerator()
 
   initialized = false
   console.log('🛑 Background jobs stopped')

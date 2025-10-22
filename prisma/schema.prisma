@@ -24,6 +24,7 @@ model User {
   instagramAccounts  InstagramAccount[]
   posts              Post[]
   autoReplySettings  AutoReplySettings[]
+  autoContentSettings AutoContentSettings[]
   sessions           Session[]
   accounts           Account[]
 
@@ -271,4 +272,67 @@ model MessageHistory {
   @@index([userId])
   @@index([conversationId])
   @@map("message_history")
+}
+
+// ==================== AUTO CONTENT GENERATOR ====================
+
+model AutoContentSettings {
+  id            String    @id @default(cuid())
+  userId        String
+  
+  // Topic & Configuration
+  topic         String    // "Tips Marketing", "Quotes Motivasi", etc
+  tone          String    @default("casual") // casual, formal, funny, professional
+  language      String    @default("id") // id, en
+  
+  // Schedule
+  enabled       Boolean   @default(false)
+  cronTime      String    // "0 8 * * *" = every day at 08:00
+  timezone      String    @default("Asia/Jakarta")
+  
+  // Platform
+  platform      String    // "threads", "instagram", "both"
+  
+  // AI Settings
+  aiModel       String    @default("gemini-2.0-flash-lite")
+  customPrompt  String?   // Custom instruction untuk AI
+  
+  // Post Settings
+  autoPublish   Boolean   @default(false) // true = langsung publish, false = save as draft
+  includeHashtags Boolean @default(true)
+  maxLength     Int       @default(500)
+  
+  // Stats
+  lastGeneratedAt DateTime?
+  totalGenerated  Int     @default(0)
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([enabled])
+  @@map("auto_content_settings")
+}
+
+model AutoContentHistory {
+  id                String    @id @default(cuid())
+  userId            String
+  settingId         String    // Reference to AutoContentSettings
+  
+  topic             String
+  generatedContent  String
+  aiModel           String
+  
+  postId            String?   // Reference to Post if published
+  status            String    // "generated", "published", "failed"
+  errorMessage      String?
+  
+  generatedAt       DateTime  @default(now())
+  
+  @@index([userId])
+  @@index([settingId])
+  @@index([status])
+  @@map("auto_content_history")
 }
