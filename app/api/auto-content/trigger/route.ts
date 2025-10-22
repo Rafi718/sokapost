@@ -50,14 +50,21 @@ export async function POST(request: NextRequest) {
 
     console.log(`🤖 Manual trigger content generation for setting ${settingId}`)
 
+    // Validate customPrompt
+    if (!setting.customPrompt || !setting.customPrompt.trim()) {
+      return NextResponse.json(
+        { error: 'AI Prompt is required in setting' },
+        { status: 400 }
+      )
+    }
+
     // Generate content using AI
     const content = await generateContent({
-      topic: setting.topic,
+      customPrompt: setting.customPrompt,
       tone: setting.tone,
       language: setting.language,
       maxLength: setting.maxLength,
       includeHashtags: setting.includeHashtags,
-      customPrompt: setting.customPrompt,
       platform: setting.platform
     })
 

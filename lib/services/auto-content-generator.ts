@@ -117,15 +117,21 @@ async function generateAndPublishContent(settingId: string) {
 
     console.log(`🤖 Generating content for setting ${settingId}...`)
     console.log(`Topic: ${setting.topic}, Platform: ${setting.platform}`)
+    console.log(`AI Prompt: ${setting.customPrompt?.substring(0, 50)}...`)
+    
+    // Validate customPrompt
+    if (!setting.customPrompt || !setting.customPrompt.trim()) {
+      console.error(`❌ Setting ${settingId} has no AI Prompt - skipping`)
+      return
+    }
 
     // Generate content using AI with higher limit (will be split later)
     const fullContent = await generateContent({
-      topic: setting.topic,
+      customPrompt: setting.customPrompt,
       tone: setting.tone,
       language: setting.language,
       maxLength: 2000, // Generate up to 2000 chars
       includeHashtags: setting.includeHashtags,
-      customPrompt: setting.customPrompt,
       platform: setting.platform
     })
 

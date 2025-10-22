@@ -68,6 +68,13 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+    
+    if (!customPrompt || !customPrompt.trim()) {
+      return NextResponse.json(
+        { error: 'AI Prompt is required' },
+        { status: 400 }
+      )
+    }
 
     // Validate cron time format (basic validation)
     const cronParts = cronTime.split(' ')
@@ -102,7 +109,7 @@ export async function POST(request: NextRequest) {
           timezone: timezone || 'Asia/Jakarta',
           platform,
           aiModel: aiModel || 'gemini-2.0-flash-lite',
-          customPrompt: customPrompt || null,
+          customPrompt: customPrompt,
           autoPublish: autoPublish ?? false,
           includeHashtags: includeHashtags ?? true,
           maxLength: maxLength || 500
@@ -124,7 +131,7 @@ export async function POST(request: NextRequest) {
         timezone: timezone || 'Asia/Jakarta',
         platform,
         aiModel: aiModel || 'gemini-2.0-flash-lite',
-        customPrompt: customPrompt || null,
+        customPrompt: customPrompt,
         autoPublish: autoPublish ?? false,
         includeHashtags: includeHashtags ?? true,
         maxLength: maxLength || 500

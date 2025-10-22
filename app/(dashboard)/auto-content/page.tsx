@@ -125,6 +125,16 @@ export default function AutoContentPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!formData.topic.trim()) {
+      toast.error('Topic is required')
+      return
+    }
+    
+    if (!formData.customPrompt.trim()) {
+      toast.error('AI Prompt is required')
+      return
+    }
 
     try {
       // Convert time picker to cron format
@@ -246,6 +256,16 @@ export default function AutoContentPage() {
   }
 
   const handlePreview = async () => {
+    if (!formData.topic.trim()) {
+      toast.error('Topic is required')
+      return
+    }
+    
+    if (!formData.customPrompt.trim()) {
+      toast.error('AI Prompt is required')
+      return
+    }
+    
     try {
       setPreviewLoading(true)
       const response = await axios.post('/api/auto-content/preview', {
@@ -406,10 +426,11 @@ export default function AutoContentPage() {
                     type="text"
                     value={formData.topic}
                     onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
-                    placeholder="e.g., Tips Digital Marketing, Quotes Motivasi"
+                    placeholder="e.g., Productivity Tips, Social Media Strategy"
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 transition-all"
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">Kategori/label untuk post Threads (untuk metadata)</p>
                   
                   {/* Saved Topics Dropdown */}
                   {topics.length > 0 && formData.topic.length === 0 && (
@@ -624,16 +645,20 @@ export default function AutoContentPage() {
                 </div>
               </div>
 
-              {/* Custom Prompt */}
+              {/* AI Prompt */}
               <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">Custom Prompt (Optional)</label>
+                <label className="block text-sm font-semibold mb-2 text-gray-700">
+                  AI Prompt *
+                </label>
                 <textarea
                   value={formData.customPrompt}
                   onChange={(e) => setFormData({ ...formData, customPrompt: e.target.value })}
-                  placeholder="Custom instructions for AI..."
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  rows={3}
+                  placeholder="e.g., Bahas tentang vibe coding yang efektif gasi, gimana cara stay focused dan produktif pas coding, kasih tips-tips praktis yang bisa langsung dipraktekkan"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 transition-all resize-none"
+                  rows={4}
+                  required
                 />
+                <p className="text-xs text-gray-500 mt-1">Instruksi detail ke AI tentang apa yang mau dibahas (wajib diisi)</p>
               </div>
 
               {/* Checkboxes */}

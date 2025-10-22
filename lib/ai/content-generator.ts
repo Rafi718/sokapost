@@ -45,12 +45,11 @@ async function retryWithBackoff<T>(
 }
 
 export interface GenerateContentParams {
-  topic: string
+  customPrompt: string // Detailed instruction to AI (REQUIRED)
   tone: string // casual, formal, funny, professional
   language: string // id, en
   maxLength: number
   includeHashtags: boolean
-  customPrompt?: string | null
   platform: string // threads, instagram
 }
 
@@ -63,7 +62,7 @@ function getDefaultSystemPrompt(tone: string, language: string): string {
   }
 
   if (language === 'id') {
-    return `Kamu adalah seorang copywriter profesional yang ahli dalam membuat konten social media yang converting menggunakan framework SLAP (Stop, Look, Act, Purchase).
+    return `Kamu adalah copywriter profesional yang ahli dalam membuat konten social media yang converting menggunakan framework SLAP (Stop, Look, Act, Purchase).
 
 FRAMEWORK SLAP:
 1. STOP - Buat opening yang menghentikan scroll (hook yang kuat, pertanyaan provokatif, atau statement mengejutkan)
@@ -132,12 +131,12 @@ IMPORTANT:
 }
 
 function buildUserPrompt(params: GenerateContentParams): string {
-  const { topic, maxLength, includeHashtags, language, platform } = params
+  const { customPrompt, maxLength, includeHashtags, language, platform } = params
   
   let prompt = ''
   
   if (language === 'id') {
-    prompt = `Buat konten social media tentang "${topic}" untuk platform ${platform} menggunakan SLAP Framework.
+    prompt = `TASK: ${customPrompt}
 
 STRUKTUR YANG HARUS DIIKUTI:
 1. HOOK (Stop): Mulai dengan opening yang powerful - bisa berupa:
@@ -189,7 +188,7 @@ ${includeHashtags ? '[Hashtags]' : ''}
 Tulis HANYA konten postnya, mulai langsung dari hook! 
 PENTING: JANGAN gunakan * atau ** untuk formatting. Gunakan plain text natural saja seperti orang chat biasa.`
   } else {
-    prompt = `Create social media content about "${topic}" for ${platform} using SLAP Framework.
+    prompt = `TASK: ${customPrompt}
 
 STRUCTURE TO FOLLOW:
 1. HOOK (Stop): Start with powerful opening - could be:
@@ -247,9 +246,13 @@ IMPORTANT: DO NOT use * or ** for formatting. Use natural plain text like normal
 
 export async function generateContent(params: GenerateContentParams): Promise<string> {
   const { tone, language, customPrompt } = params
+  
+  if (!customPrompt || !customPrompt.trim()) {
+    throw new Error('customPrompt is required')
+  }
 
-  // Get system prompt (custom or default)
-  const systemPrompt = customPrompt || getDefaultSystemPrompt(tone, language)
+  // Get system prompt
+  const systemPrompt = getDefaultSystemPrompt(tone, language)
   
   // Build user prompt
   const userPrompt = buildUserPrompt(params)

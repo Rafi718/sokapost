@@ -16,7 +16,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const {
-      topic,
       tone,
       language,
       maxLength,
@@ -26,23 +25,29 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Validate required fields
-    if (!topic || !platform) {
+    if (!customPrompt || !customPrompt.trim()) {
       return NextResponse.json(
-        { error: 'Missing required fields: topic, platform' },
+        { error: 'AI Prompt is required' },
+        { status: 400 }
+      )
+    }
+    
+    if (!platform) {
+      return NextResponse.json(
+        { error: 'Platform is required' },
         { status: 400 }
       )
     }
 
-    console.log(`🔍 Previewing content for topic: ${topic}`)
+    console.log(`🔍 Previewing content with AI prompt: ${customPrompt.substring(0, 50)}...`)
 
     // Generate content using AI
     const content = await generateContent({
-      topic,
+      customPrompt,
       tone: tone || 'casual',
       language: language || 'id',
       maxLength: maxLength || 500,
       includeHashtags: includeHashtags ?? true,
-      customPrompt: customPrompt || null,
       platform
     })
 
@@ -51,7 +56,6 @@ export async function POST(request: NextRequest) {
       content,
       metadata: {
         length: content.length,
-        topic,
         tone: tone || 'casual',
         platform
       }
